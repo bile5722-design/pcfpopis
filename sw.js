@@ -1,10 +1,10 @@
 // Inventory scan – offline cache. Serves the app from the phone's cache and
 // refreshes the cache in the background, so a new version appears on the next reload.
-var CACHE = 'invscan-shell-v4';
+var CACHE = 'invscan-shell-v12';
 var FILES = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', function(e){
-  e.waitUntil(caches.open(CACHE).then(function(c){ return c.addAll(FILES); }).then(function(){ return self.skipWaiting(); }));
+  e.waitUntil(caches.open(CACHE).then(function(c){ return Promise.all(FILES.map(function(f){ return fetch(new Request(f,{cache:'reload'})).then(function(r){ if(r.ok) return c.put(f,r); }); })); }).then(function(){ return self.skipWaiting(); }));
 });
 self.addEventListener('activate', function(e){
   e.waitUntil(caches.keys().then(function(keys){
@@ -17,7 +17,7 @@ self.addEventListener('fetch', function(e){
   e.respondWith(caches.open(CACHE).then(function(cache){
     var key = req.mode==='navigate' ? 'index.html' : req;
     return cache.match(key, {ignoreSearch:true}).then(function(cached){
-      var net = fetch(req).then(function(res){
+      var net = fetch(req, {cache:'no-cache'}).then(function(res){
         if(res && res.ok){ cache.put(key, res.clone()); }
         return res;
       }).catch(function(){ return cached; });
