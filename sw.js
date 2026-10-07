@@ -1,6 +1,6 @@
 // Inventory scan – offline cache. Serves the app from the phone's cache and
 // refreshes the cache in the background, so a new version appears on the next reload.
-var CACHE = 'invscan-shell-v12';
+var CACHE = 'invscan-shell-v13';
 var FILES = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', function(e){

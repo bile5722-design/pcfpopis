@@ -153,6 +153,11 @@ details.more summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--m
   #printArea tr{page-break-inside:avoid}
   #printArea thead{display:table-header-group}
   #printArea .sub td{font-weight:700;background:#f2f2f2}
+  #printArea table:not(.lh-t){table-layout:fixed;width:100%;max-width:100%}
+  #printArea table:not(.lh-t) td,#printArea table:not(.lh-t) th{overflow-wrap:anywhere;word-break:break-word;white-space:normal}
+  #printArea table.t-pal th:nth-child(1){width:11mm}
+  #printArea table.t-pal th:nth-child(5){width:24mm}
+  #printArea table.t-sum th:nth-child(3),#printArea table.t-sum th:nth-child(4){width:24mm}
   #printArea .tot td{font-weight:700;background:#ddd;font-size:13px}
   #printArea .num{text-align:right}
   #printArea .pb{page-break-before:always}
@@ -238,14 +243,14 @@ details.more summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--m
           <button class="btn primary" id="btnAdd">Додај</button>
           <button class="btn small" id="btnExample">Внеси пример за код на парче</button>
         </div>
-        <div class="hint">Кодот на парче има 7 полиња одделени со табулатор. Се чуваат само единица, сериски број и ERI бр. – името на купувачот, PO, шифрата на купувачот и неделата се отфрлаат при скенирање. Бројот на палета е само букви, цифри и - . /</div>
+        <div class="hint">Кодот на парче има 7 полиња одделени со табулатор. Се чуваат само модел, сериски број и ERI бр. – името на купувачот, PO, шифрата на купувачот и неделата се отфрлаат при скенирање. Бројот на палета е само букви, цифри и - . /</div>
       </div>
     </details>
   </section>
 
   <!-- PALLETS -->
   <section id="tab-pallets" class="hidden">
-    <div class="card"><input type="search" id="inFilter" placeholder="Барај палета, ERI бр., единица…"></div>
+    <div class="card"><input type="search" id="inFilter" placeholder="Барај палета, ERI бр., модел…"></div>
     <div id="palletList"></div>
   </section>
 
@@ -261,12 +266,12 @@ details.more summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--m
       <div class="stats">
         <div><b id="stPieces">0</b><span>парчиња</span></div>
         <div><b id="stPallets">0</b><span>палети</span></div>
-        <div><b id="stUnits">0</b><span>различни единици</span></div>
+        <div><b id="stUnits">0</b><span>различни модели</span></div>
       </div>
     </div>
     <div class="card">
       <button class="btn primary" style="width:100%" id="btnXlsx">Преземи Excel (.xlsx) – 4 листа</button>
-      <div class="hint">Лист „Парчиња“ = еден ред за секое скенирано парче. Лист „Палети“ = збир по палета. Лист „По единица“ = истите парчиња подредени по единица, со вкупно по единица. Лист „Збир по единица“ = збир по единица и ОС (ОС = ERI бројот пред цртичката). Препорачано: Excel ги чува вредностите како 40/26 како текст.</div>
+      <div class="hint">Лист „Парчиња“ = еден ред за секое скенирано парче. Лист „Палети“ = збир по палета. Лист „По модел“ = истите парчиња подредени по модел, со вкупно по модел. Лист „Збир по модел“ = збир по модел и ОС (ОС = ERI бројот пред цртичката). Препорачано: Excel ги чува вредностите како 40/26 како текст.</div>
     </div>
     <div class="card">
       <div class="row">
@@ -284,7 +289,7 @@ details.more summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--m
       <div id="exportNote" class="hint"></div>
     </div>
     <div class="card">
-    <button class="btn" style="width:100%" id="btnPrint">Печати листи за потпис (збир по единица и ОС + листа по палета)</button>
+    <button class="btn" style="width:100%" id="btnPrint">Печати листи за потпис (збир по модел и ОС + листа по палета)</button>
     <div class="hint">Се отвора прозорец за печатење. Избери печатач или „Зачувај како PDF“. На секоја листа има места за потпис на двајца учесници и датум.</div>
   </div>
   <div class="card">
@@ -10600,7 +10605,7 @@ function addPiece(text){
     } else {
       pending = { text: text, item: item, ex: ex };
       setMsg('err','ДУПЛИКАТ – веќе е на палета '+ex.pallet,
-        item.eri+' / сериски '+item.serial+' (единица '+item.unit+') е скенирано на палета '+ex.pallet+' на '+ex.ts+'. Не е додадено.',
+        item.eri+' / сериски '+item.serial+' (модел '+item.unit+') е скенирано на палета '+ex.pallet+' на '+ex.ts+'. Не е додадено.',
         [ {label:'Премести на '+S.pallet, primary:true, fn:doMove}, {label:'Остави на '+ex.pallet, fn:function(){ pending=null; setMsg('info','Без промена','Останува на палета '+ex.pallet+'.'); } } ]);
     }
     return;
@@ -10672,7 +10677,7 @@ function renderPallets(){
     var s = el('summary');
     var left = el('div'); left.appendChild(el('b',null,g.id));
     var units = new Set(g.items.map(function(i){return i.unit;})).size;
-    left.appendChild(el('div','muted',units+' различни единици'));
+    left.appendChild(el('div','muted',units+' различни модели'));
     var right = el('span','badge', g.items.length+' парч.');
     s.appendChild(left); s.appendChild(right); d.appendChild(s);
     var body = el('div','body');
@@ -10698,7 +10703,7 @@ function renderPallets(){
   if(!shown) box.appendChild(el('div','card muted', S.items.length ? 'Нема совпаѓање.' : 'Сè уште нема палети.'));
 }
 
-var COLS = ['Палета','Единица','Сериски бр.','ERI бр.','Скенирано на','Попишал','Преместено од'];
+var COLS = ['Палета','Модел','Сериски бр.','ERI бр.','Скенирано на','Попишал','Преместено од'];
 function rowOf(i){ return [i.pallet,i.unit,i.serial,i.eri,i.ts,i.by,i.movedFrom]; }
 function summaryRows(src){
   return palletGroups(src).map(function(g){
@@ -10706,7 +10711,7 @@ function summaryRows(src){
     return [g.id, g.items.length, units, unitBreakdown(g.items).join('; '), g.items[0].ts, g.items[g.items.length-1].ts];
   });
 }
-var SCOLS = ['Палета','Парчиња','Различни единици','Единици (кол.)','Прво скенирање','Последно скенирање'];
+var SCOLS = ['Палета','Парчиња','Различни модели','Модели (кол.)','Прво скенирање','Последно скенирање'];
 
 function renderData(){
   var t = $('tbl'); t.textContent='';
@@ -10927,8 +10932,8 @@ function xlsxBlob(items){
            String(a.eri).localeCompare(String(b.eri),'en',{numeric:true}) ||
            String(a.serial).localeCompare(String(b.serial),'en',{numeric:true});
   });
-  var UCOLS = ['Единица','Палета','ERI бр.','Сериски бр.','Скенирано на','Попишал','Преместено од'];
-  var rows3 = [UCOLS], totals = [['Единица','Вкупно парчиња','Број на палети']];
+  var UCOLS = ['Модел','Палета','ERI бр.','Сериски бр.','Скенирано на','Попишал','Преместено од'];
+  var rows3 = [UCOLS], totals = [['Модел','Вкупно парчиња','Број на палети']];
   var cur = null, cnt = 0, pals = {}, all = 0;
   function closeUnit(){
     if(cur===null) return;
@@ -10945,7 +10950,7 @@ function xlsxBlob(items){
   totals.push(['СИТЕ ПАРЧИЊА', all]);
   var w3 = XLSX.utils.aoa_to_sheet(rows3);
   w3['!cols'] = [18,14,18,8,19,14,14].map(function(w){return {wch:w};});
-  var tot2 = [['Единица','ОС','Вкупно парчиња','Број на палети']];
+  var tot2 = [['Модел','ОС','Вкупно парчиња','Број на палети']];
   sumUnitOc(items).forEach(function(U){
     U.ocOrder.forEach(function(o){ var O=U.ocs[o]; tot2.push([U.unit,o,O.n,Object.keys(O.pals).length]); });
     tot2.push(['ВКУПНО '+U.unit,'',U.n,Object.keys(U.pals).length]);
@@ -10953,8 +10958,8 @@ function xlsxBlob(items){
   tot2.push(['СИТЕ ПАРЧИЊА','',items.length,'']);
   var w4 = XLSX.utils.aoa_to_sheet(tot2);
   w4['!cols'] = [24,14,16,16].map(function(w){return {wch:w};});
-  XLSX.utils.book_append_sheet(wb, w3, 'По единица');
-  XLSX.utils.book_append_sheet(wb, w4, 'Збир по единица');
+  XLSX.utils.book_append_sheet(wb, w3, 'По модел');
+  XLSX.utils.book_append_sheet(wb, w4, 'Збир по модел');
   var out = XLSX.write(wb, {bookType:'xlsx', type:'array'});
   return new Blob([out], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
 }
@@ -11023,15 +11028,15 @@ function buildPrint(){
     cur.items.push(i); cur.pallets[i.pallet]=1;
   });
   var LHALL = '<div class="lh-bar"></div><div class="lh-head"><img src="data:image/png;base64,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" alt=""><div class="l1">TIN: 4002009511307; CIN: 6455620; email: quality@ericorporation.com</div><div class="l2">Address: ERI Corporation DOOEL, str. Bursa, No. 124, P.box: 185, Bitola 7000, Republic of North Macedonia</div></div><div class="lh-foot">“ERI Corporation is a member of Volution Group, a leading international designer and manufacturer of energy efficient indoor air quality solutions”</div>';
-  var h = head('Збир по единица и ОС');
-  h += '<table><thead><tr><th>Единица</th><th>ОС</th><th class="num">Парчиња</th><th class="num">Палети</th></tr></thead><tbody>';
+  var h = head('Збир по модел и ОС');
+  h += '<table class="t-sum"><thead><tr><th>Модел</th><th>ОС</th><th class="num">Парчиња</th><th class="num">Палети</th></tr></thead><tbody>';
   sumUnitOc(items).forEach(function(U){
     U.ocOrder.forEach(function(o){ var O=U.ocs[o]; h += '<tr><td>'+esc(U.unit)+'</td><td>'+esc(o)+'</td><td class="num">'+O.n+'</td><td class="num">'+Object.keys(O.pals).length+'</td></tr>'; });
     h += '<tr class="sub"><td colspan="2">ВКУПНО '+esc(U.unit)+'</td><td class="num">'+U.n+'</td><td class="num">'+Object.keys(U.pals).length+'</td></tr>';
   });
   h += '<tr class="tot"><td colspan="2">СИТЕ ПАРЧИЊА</td><td class="num">'+items.length+'</td><td class="num">'+palletGroups().length+'</td></tr></tbody></table>'+sig;
   h += '<div class="pb"></div>'+head('Листа по палета (редослед на скенирање)');
-  h += '<table><thead><tr><th class="num">Бр.</th><th>Единица</th><th>ERI бр.</th><th>Сериски бр.</th><th>Време</th></tr></thead><tbody>';
+  h += '<table class="t-pal"><thead><tr><th class="num">Бр.</th><th>Модел</th><th>ERI бр.</th><th>Сериски бр.</th><th>Време</th></tr></thead><tbody>';
   palletGroups().forEach(function(g){
     h += '<tr class="sub"><td colspan="5">Палета '+esc(g.id)+' &nbsp;–&nbsp; '+g.items.length+' парч. &nbsp;·&nbsp; '+esc(unitBreakdown(g.items).join('; '))+'</td></tr>';
     g.items.forEach(function(i,n){ h += '<tr><td class="num">'+(n+1)+'</td><td>'+esc(i.unit)+'</td><td>'+esc(i.eri)+'</td><td>'+esc(i.serial)+'</td><td>'+esc((i.ts||'').slice(11))+'</td></tr>'; });
@@ -11120,7 +11125,7 @@ function discRows(res){
   res.onlyB.forEach(function(x){ out.push(['Само во листа B', x.b.eri, x.b.serial, x.b.unit, '', x.b.pallet, '', x.b.by]); });
   return out;
 }
-var DCOLS = ['Проблем','ERI бр.','Сериски бр.','Единица','Палета (A)','Палета (B)','Попишал (A)','Попишал (B)','Резултат од повторно броење'];
+var DCOLS = ['Проблем','ERI бр.','Сериски бр.','Модел','Палета (A)','Палета (B)','Попишал (A)','Попишал (B)','Резултат од повторно броење'];
 function renderCompare(res){
   var out = $('cmpOut'); out.textContent='';
   var warn = [];
@@ -11170,7 +11175,7 @@ function exportCompare(){
   var s1 = XLSX.utils.aoa_to_sheet(sum); s1['!cols']=[{wch:26},{wch:26},{wch:22},{wch:34}];
   var s2 = XLSX.utils.aoa_to_sheet([DCOLS].concat(disc)); s2['!cols']=[22,18,8,18,12,12,16,16,22].map(function(w){return {wch:w};});
   var s3 = XLSX.utils.aoa_to_sheet([['Палета','Парчиња A','Парчиња B','Разлика']].concat(res.pallets.map(function(p){ return [p.pallet,p.a,p.b,p.a-p.b]; }))); s3['!cols']=[16,10,10,12].map(function(w){return {wch:w};});
-  var s4 = XLSX.utils.aoa_to_sheet([['Палета','ERI бр.','Сериски бр.','Единица']].concat(res.match.map(function(x){ return [x.a.pallet,x.a.eri,x.a.serial,x.a.unit]; }))); s4['!cols']=[16,18,8,18].map(function(w){return {wch:w};});
+  var s4 = XLSX.utils.aoa_to_sheet([['Палета','ERI бр.','Сериски бр.','Модел']].concat(res.match.map(function(x){ return [x.a.pallet,x.a.eri,x.a.serial,x.a.unit]; }))); s4['!cols']=[16,18,8,18].map(function(w){return {wch:w};});
   XLSX.utils.book_append_sheet(wb,s1,'Резиме'); XLSX.utils.book_append_sheet(wb,s2,'Разлики');
   XLSX.utils.book_append_sheet(wb,s3,'Збир по палета'); XLSX.utils.book_append_sheet(wb,s4,'Совпаѓања');
   var out = XLSX.write(wb,{bookType:'xlsx',type:'array'});
