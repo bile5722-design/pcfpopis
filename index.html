@@ -241,7 +241,6 @@ details.more summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--m
         <textarea id="inManual" placeholder="Број на палета (пр. A-03-P017) или залепен код на парче" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
         <div class="row" style="margin-top:8px">
           <button class="btn primary" id="btnAdd">Додај</button>
-          <button class="btn small" id="btnExample">Внеси пример за код на парче</button>
         </div>
         <div class="hint">Кодот на парче има 7 полиња одделени со табулатор. Се чуваат само модел, сериски број и ERI бр. – името на купувачот, PO, шифрата на купувачот и неделата се отфрлаат при скенирање. Бројот на палета е само букви, цифри и - . /</div>
       </div>
@@ -271,7 +270,7 @@ details.more summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--m
     </div>
     <div class="card">
       <button class="btn primary" style="width:100%" id="btnXlsx">Преземи Excel (.xlsx) – 4 листа</button>
-      <div class="hint">Лист „Парчиња“ = еден ред за секое скенирано парче. Лист „Палети“ = збир по палета. Лист „По модел“ = истите парчиња подредени по модел, со вкупно по модел. Лист „Збир по модел“ = збир по модел и ОС (ОС = ERI бројот пред цртичката). Препорачано: Excel ги чува вредностите како 40/26 како текст.</div>
+      <div class="hint">Лист „Парчиња“ = еден ред за секое скенирано парче. Лист „Палети“ = збир по палета. Лист „По модел“ = истите парчиња подредени по модел, со вкупно по модел. Лист „Збир по модел“ = збир по модел и ОС (ОС = целиот ERI број, на пр. 26/4356-2/3). Препорачано: Excel ги чува вредностите како 40/26 како текст.</div>
     </div>
     <div class="card">
       <div class="row">
@@ -10690,7 +10689,7 @@ function renderPallets(){
       t.appendChild(el('div','muted', i.unit+(i.movedFrom?' · преместено од '+i.movedFrom:'')));
       var x = el('button','btn small danger','✕');
       x.setAttribute('aria-label','Отстрани парче');
-      x.onclick = function(){ var idx=S.items.indexOf(i); if(idx>=0){ S.items.splice(idx,1); save(); renderAll(); } };
+      x.onclick = function(){ askSure('Дали сте сигурни? Ќе се отстрани парчето '+i.eri+' / сериски '+i.serial+' од палета '+i.pallet+'.', function(){ var idx=S.items.indexOf(i); if(idx>=0){ S.items.splice(idx,1); save(); renderAll(); } }); };
       li.appendChild(t); li.appendChild(x); ul.appendChild(li);
     });
     body.appendChild(ul);
@@ -10761,20 +10760,29 @@ $('btnAdd').onclick = function(){
 $('inManual').addEventListener('keydown', function(e){
   if(e.key==='Enter' && !e.shiftKey && this.value.indexOf('\t')<0 && this.value.trim()){ e.preventDefault(); $('btnAdd').click(); }
 });
-$('btnExample').onclick = function(){
-  $('inManual').value = 'TROX Espana, S. A.\tES3078854\t(ES2003410ESAHU)\tPCF-I-3-62-471\t1\t26/4008-13/15\t40/26';
-  setMsg('info','Примерот е внесен','Прво отвори палета (пр. напиши TEST-01 и притисни „Додај“), па додај го примерот. Додај го двапати за да го тестираш предупредувањето за дупликат.');
-};
 $('btnClose').onclick = function(){
   if(!S.pallet) return;
   var p=S.pallet, n=piecesOn(p).length;
   S.pallet=null; pending=null; save(); renderAll();
-  setMsg('info','Палета '+p+' е затворена', n+' парчиња. Скенирај ја следната палета.');
+  var msg = n+' парчиња. Скенирај ја следната палета.';
+  if(S.items.length && window.XLSX){
+    var d = new Date(), hm = ('0'+d.getHours()).slice(-2)+('0'+d.getMinutes()).slice(-2);
+    var pid = String(p).replace(/[^A-Za-z0-9._-]+/g,'_');
+    try{ saveFile(fname(hm+'_po_paleta_'+pid,'xlsx'), xlsxBlob(S.items)); msg += ' Автоматски е зачуван Excel (сите досегашни парчиња) во Downloads.'; }
+    catch(e){ msg += ' Автоматскиот извоз не успеа: направи извоз рачно во табот „Извоз“.'; }
+  } else if(S.items.length){
+    msg += ' Excel библиотеката не се вчита: направи извоз рачно (CSV) во табот „Извоз“.';
+  }
+  setMsg('info','Палета '+p+' е затворена', msg);
 };
 $('btnUndo').onclick = function(){
   if(!S.items.length) return;
-  var i = S.items.pop(); save(); renderAll();
-  setMsg('info','Последното парче е отстрането', i.eri+' / сериски '+i.serial+' (палета '+i.pallet+').');
+  var last = S.items[S.items.length-1];
+  askSure('Дали сте сигурни? Ќе се отстрани последното скенирано парче: '+last.eri+' / сериски '+last.serial+' (палета '+last.pallet+').', function(){
+    if(!S.items.length) return;
+    var i = S.items.pop(); save(); renderAll();
+    setMsg('info','Последното парче е отстрането', i.eri+' / сериски '+i.serial+' (палета '+i.pallet+').');
+  });
 };
 
 /* ---------- camera ---------- */
@@ -10991,7 +10999,7 @@ $('btnCopy').onclick = async function(){
 
 
 /* ---------- sum by unit and OC ---------- */
-function ocOf(eri){ var e=String(eri||'').trim(); var k=e.indexOf('-'); return k>0 ? e.slice(0,k) : e; }
+function ocOf(eri){ return String(eri||'').trim(); }
 function sumUnitOc(items){
   var byUnit = {}, order = [];
   items.forEach(function(i){
@@ -11189,15 +11197,23 @@ $('btnCompare').onclick = function(){
 };
 
 /* ---------- clear ---------- */
-$('btnClear').onclick = function(){
-  $('modalText').textContent = 'Да се избришат сите '+S.items.length+' скенирани парчиња и да започне нов попис? Прво извези ги податоците ако ти требаат.';
+var modalAction = null;
+function askSure(text, fn){
+  modalAction = fn;
+  $('modalText').textContent = text;
   $('modal').classList.add('on');
+}
+$('btnClear').onclick = function(){
+  askSure('Дали сте сигурни? Ќе се избришат сите '+S.items.length+' скенирани парчиња и ќе започне нов попис. Прво извези ги податоците ако ти требаат.', function(){
+    S.items=[]; S.pallet=null; pending=null; openSet={}; save();
+    renderAll(); showTab('scan'); setMsg('info','Започнат е нов попис','Скенирај палета за да почнеш.');
+  });
 };
-$('modalNo').onclick = function(){ $('modal').classList.remove('on'); };
+$('modalNo').onclick = function(){ modalAction=null; $('modal').classList.remove('on'); };
 $('modalYes').onclick = function(){
-  S.items=[]; S.pallet=null; pending=null; openSet={}; save();
+  var fn = modalAction; modalAction = null;
   $('modal').classList.remove('on');
-  renderAll(); showTab('scan'); setMsg('info','Започнат е нов попис','Скенирај палета за да почнеш.');
+  if(fn) fn();
 };
 
 function showHelp(){ $('help').classList.add('on'); }
