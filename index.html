@@ -196,6 +196,8 @@ details.more summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--m
     <button class="tab" role="tab" data-tab="compare" aria-selected="false">Споредба</button>
   </div>
 
+  <div id="storeWarn" class="msg warn" role="alert" hidden></div>
+
   <!-- SCAN -->
   <section id="tab-scan">
     <div class="who"><label for="inBy">Попишува:</label><input type="text" id="inBy" placeholder="Име и презиме" autocomplete="off"></div>
@@ -270,6 +272,8 @@ details.more summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--m
     </div>
     <div class="card">
       <button class="btn primary" style="width:100%" id="btnXlsx">Преземи Excel (.xlsx) – 4 листа</button>
+      <button class="btn" style="width:100%;margin-top:8px" id="btnShare">Испрати Excel (е-пошта, Viber…)</button>
+      <div class="hint" id="shareNote">Го отвора менито за споделување на телефонот. Избери Viber, е-пошта или друга апликација.</div>
       <div class="hint">Лист „Парчиња“ = еден ред за секое скенирано парче. Лист „Палети“ = збир по палета. Лист „По модел“ = истите парчиња подредени по модел, со вкупно по модел. Лист „Збир по модел“ = збир по модел и ОС (ОС = целиот ERI број, на пр. 26/4356-2/3). Препорачано: Excel ги чува вредностите како 40/26 како текст.</div>
     </div>
     <div class="card">
@@ -10481,7 +10485,7 @@ var LS = 'invscan_v1';
 var storageOK = true;
 function today(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function nowStr(){ var d=new Date(); return today()+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0'); }
-var S = { by: '', pallet: null, items: [] };
+var S = { by: '', pallet: null, items: [], closedN: 0 };
 try { var raw = localStorage.getItem(LS); if(raw){ var o=JSON.parse(raw); if(o && Array.isArray(o.items)) S = Object.assign(S, o); } } catch(e){ storageOK=false; }
 function save(){ try{ localStorage.setItem(LS, JSON.stringify(S)); }catch(e){ storageOK=false; renderFoot(); } }
 
@@ -10729,7 +10733,21 @@ function renderExport(){
   $('stPallets').textContent = palletGroups().length;
   $('stUnits').textContent = new Set(S.items.map(function(i){return i.unit;})).size;
 }
+var STORE_LIMIT = 5000000; // approx. characters a browser allows per site (assumption, measured in Chrome)
+function storeUsedPct(){
+  try{ var n = 0; for(var k in localStorage){ if(Object.prototype.hasOwnProperty.call(localStorage,k)) n += k.length + String(localStorage.getItem(k)).length; } return Math.round(n*100/STORE_LIMIT); }
+  catch(e){ return 0; }
+}
+function renderStoreWarn(){
+  var w = $('storeWarn'); if(!w) return;
+  var pct = storeUsedPct();
+  if(!storageOK){ w.hidden = false; w.className='msg err'; w.innerHTML = '<b>Податоците не се зачувуваат</b>Прелистувачот не дозволува чување. Веднаш направи извоз (табот „Извоз“) и не затворај ја страницата.'; return; }
+  if(pct >= 90){ w.hidden = false; w.className='msg err'; w.innerHTML = '<b>Меморијата е речиси полна ('+pct+'%)</b>Веднаш направи извоз на Excel и започни нов попис на друг телефон или по зачувувањето.'; }
+  else if(pct >= 70){ w.hidden = false; w.className='msg warn'; w.innerHTML = '<b>Меморијата е '+pct+'% полна</b>Направи извоз на Excel. Наскоро нема да може да се зачуваат нови скенирања.'; }
+  else { w.hidden = true; w.textContent = ''; }
+}
 function renderFoot(){
+  renderStoreWarn();
   $('foot').textContent = storageOK ? 'Податоците се чуваат на овој телефон (во прелистувачот). Извезувај редовно.' : '⚠ Овој прелистувач не ги зачувува податоците. Извези пред да ја затвориш страницата.';
 }
 function renderAll(){ renderScan(); renderPallets(); renderData(); renderExport(); renderFoot(); }
@@ -10764,14 +10782,17 @@ $('btnClose').onclick = function(){
   if(!S.pallet) return;
   var p=S.pallet, n=piecesOn(p).length;
   S.pallet=null; pending=null; save(); renderAll();
+  S.closedN = (S.closedN||0) + 1; save();
   var msg = n+' парчиња. Скенирај ја следната палета.';
-  if(S.items.length && window.XLSX){
-    var d = new Date(), hm = ('0'+d.getHours()).slice(-2)+('0'+d.getMinutes()).slice(-2);
-    var pid = String(p).replace(/[^A-Za-z0-9._-]+/g,'_');
-    try{ saveFile(fname(hm+'_po_paleta_'+pid,'xlsx'), xlsxBlob(S.items)); msg += ' Автоматски е зачуван Excel (сите досегашни парчиња) во Downloads.'; }
-    catch(e){ msg += ' Автоматскиот извоз не успеа: направи извоз рачно во табот „Извоз“.'; }
+  if(S.items.length && S.closedN % 10 === 0){
+    if(window.XLSX){
+      var d = new Date(), hm = ('0'+d.getHours()).slice(-2)+('0'+d.getMinutes()).slice(-2);
+      try{ saveFile(fname(hm+'_po_'+S.closedN+'_paleti','xlsx'), xlsxBlob(S.items)); msg += ' Затворени се '+S.closedN+' палети: Excel е автоматски зачуван во Downloads (сите досегашни парчиња).'; }
+      catch(e){ msg += ' Автоматскиот извоз не успеа: направи извоз рачно во табот „Извоз“.'; }
+    } else { msg += ' Excel библиотеката не се вчита: направи извоз рачно (CSV) во табот „Извоз“.'; }
   } else if(S.items.length){
-    msg += ' Excel библиотеката не се вчита: направи извоз рачно (CSV) во табот „Извоз“.';
+    var left = 10 - (S.closedN % 10);
+    msg += ' Автоматски Excel по уште '+left+' затворени палети.';
   }
   setMsg('info','Палета '+p+' е затворена', msg);
 };
@@ -10975,6 +10996,23 @@ $('btnXlsx').onclick = function(){
   if(!S.items.length){ $('exportNote').textContent='Сè уште нема податоци за извоз.'; return; }
   if(!window.XLSX){ $('exportNote').textContent='Excel библиотеката не се вчита. Користи CSV или копирање.'; return; }
   saveFile(fname('count','xlsx'), xlsxBlob(S.items));
+};
+$('btnShare').onclick = async function(){
+  var note = $('shareNote');
+  if(!S.items.length){ note.textContent='Сè уште нема податоци за испраќање.'; return; }
+  if(!window.XLSX){ note.textContent='Excel библиотеката не се вчита. Користи CSV или копирање.'; return; }
+  try{
+    var f = new File([xlsxBlob(S.items)], fname('count','xlsx'), {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    if(navigator.canShare && navigator.canShare({files:[f]}) && navigator.share){
+      await navigator.share({files:[f], title:'Попис на неспакуван производ', text:'Попис '+today()+', '+S.items.length+' парчиња'});
+      note.textContent = 'Подготвено за испраќање.';
+    } else {
+      note.textContent = 'Овој прелистувач не поддржува споделување на датотеки. Користи „Преземи Excel“ и испрати ја датотеката од папката Downloads.';
+    }
+  }catch(e){
+    if(e && e.name==='AbortError') return;
+    note.textContent = 'Споделувањето не успеа. Користи „Преземи Excel“ и испрати ја датотеката од папката Downloads.';
+  }
 };
 $('btnCsvP').onclick = function(){
   if(!S.items.length){ $('exportNote').textContent='Сè уште нема податоци за извоз.'; return; }
@@ -11205,7 +11243,7 @@ function askSure(text, fn){
 }
 $('btnClear').onclick = function(){
   askSure('Дали сте сигурни? Ќе се избришат сите '+S.items.length+' скенирани парчиња и ќе започне нов попис. Прво извези ги податоците ако ти требаат.', function(){
-    S.items=[]; S.pallet=null; pending=null; openSet={}; save();
+    S.items=[]; S.pallet=null; S.closedN=0; pending=null; openSet={}; save();
     renderAll(); showTab('scan'); setMsg('info','Започнат е нов попис','Скенирај палета за да почнеш.');
   });
 };
